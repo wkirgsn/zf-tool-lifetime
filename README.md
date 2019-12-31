@@ -40,7 +40,7 @@ Wenn jetzt http://0.0.0.0:8050/ im Browser geöffnet wird, so ist das
 live-Dashboard zu sehen.
 
 ## Was ist zu sehen
-###Datenerfassung
+### Datenerfassung
 
 Füge dem Datenbestand entweder neue Einzelbestellungen, Batch-Bestellungen 
 oder einen völlig neuen weiteren Datensatz hinzu.
