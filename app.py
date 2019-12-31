@@ -16,13 +16,14 @@ app = dash.Dash(
 server = app.server
 app.config["suppress_callback_exceptions"] = True
 
-dm = DataManager()
-lb = LayoutBuilder(app, dm)
+dm = DataManager()  # data wrangling
+lb = LayoutBuilder(app, dm)  # layout specifications
 
 # main structure
 app.layout = lb.build_main_structure()
 
 
+# Callback functions
 @app.callback(
     Output("app-content", "children"),
     [Input("app-tabs", "value")])
@@ -53,7 +54,6 @@ def update_click_output(button_click, close_click):
 
 
 # ======= Callbacks for Data Upload Tab =======
-
 @app.callback(
     Output("orders-table-content", 'children'),
     [Input("value-setter-set-btn", 'n_clicks'),
@@ -113,7 +113,7 @@ def update_orders(n_clicks, customers, products, date, dragged_content, amt,
     return lb.generate_order_table_content(customers, products, date)
 
 
-lb.generate_form_panel_callbacks()
+lb.generate_form_panel_callbacks()  # dynamically generated callback funcs
 
 
 #  ======= middle panel (orders) ============

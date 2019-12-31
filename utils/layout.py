@@ -209,6 +209,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
             return div_attrs
 
         def _get_sparkline_config(self, item):
+            """Builds the config for the sparkline graphs item by item"""
             return {"data": [
                 {
                     "x": self.form_attritions_over_time.index.values,
@@ -276,10 +277,15 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
 
     @staticmethod
     def build_section_banner(title):
+        """Builds a section banner"""
         return html.Div(className="section-banner", children=title)
 
     @staticmethod
     def build_tabs():
+        """Builds the upper tabs
+
+        :return: html.Div object
+        """
         return html.Div(
             id="tabs",
             className="tabs",
@@ -310,6 +316,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
 
     @classmethod
     def build_about(cls):
+        """Builds the 'about' window when clicking on the 'about'-button.
+
+        :return: html.Div object
+        """
         return html.Div(
             id="markdown",
             className="modal",
@@ -338,20 +348,11 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
             ),
         )
 
-    @staticmethod
-    def build_value_setter_line(line_num, label, value, col3):
-        return html.Div(
-            id=line_num,
-            children=[
-                html.Label(label, className="four columns"),
-                html.Label(value, className="four columns"),
-                html.Div(col3, className="four columns"),
-            ],
-            className="row",
-        )
-
     def build_main_structure(self):
-        """The big picture."""
+        """The big picture.
+
+        :return: html.Div object
+        """
         return html.Div(
                 id="big-app-container",
                 children=[
@@ -370,6 +371,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
 )
 
     def build_quick_stats_panel(self):
+        """Quick stats on the left of the view
+
+        :return: html.Div object
+        """
         current_giesszellenbedarf = \
             self.dm.giesszellenbedarf_over_time().iloc[0, :]
         return html.Div(
@@ -408,7 +413,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
                                   value=100 * current_giesszellenbedarf.mean() /
                                         current_giesszellenbedarf.max())],
                 ),
-                html.Div(
+                html.Div(  # todo: Implement this feature
                     id="card-4",
                     children=
                         daq.BooleanSwitch(id="AI-powerbutton", on=False,
@@ -443,9 +448,14 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         )
 
     def generate_form_panel_callbacks(self):
+        """Generate callbacks dealing with the form artist"""
         self.form_artist.generate_callbacks()
 
     def build_upload_data_tab(self):
+        """Builds the upload-data-tab
+
+        :return: list of html.Div objects
+        """
         unique_customers = self.dm.unique_customers
         unique_products = self.dm.unique_products
         orders_df = self.dm.camera_ready_orders
@@ -579,6 +589,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
     def generate_order_table_content(self,
                                      customers=None, products=None,
                                      month=None):
+        """Generates the table entries for the data-upload-tab safely
+
+        :return: list of html.Div objects
+        """
         orders_df = self.dm.camera_ready_orders
         if customers is not None:
             if not isinstance(customers, list):
@@ -597,6 +611,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
                 orders_df.itertuples()]
 
     def build_monitoring_tab(self):
+        """Builds the control-charts-dashboard-tab
+
+        :return: html.Div object
+        """
         return html.Div(
                 id="status-container",
                 children=[
@@ -650,6 +668,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         )
 
     def build_orders_panel(self):
+        """Builds the bar chart for orders
+
+        :return: html.Div object
+        """
         return html.Div(
             id="middle-section-container",
             className="row",
@@ -674,6 +696,10 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         )
 
     def build_giesszellenbedarf_panel(self):
+        """builds the bar chart for giesszellenbedarf
+
+        :return: html.Div object
+        """
         return html.Div(
             id="bottom-section-container",
             className="row",
@@ -699,7 +725,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         )
 
     def update_order_chart(self, customers=1):
-
+        """Updates the orders chart"""
         if not isinstance(customers, list):
             customers = [customers]
 
@@ -741,6 +767,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         return fig
 
     def update_order_pie(self, customers=1):
+        """Updates the orders pie chart"""
         if not isinstance(customers, list):
             customers = [customers]
         orders_df = self.dm.orders_over_time(customers)
@@ -772,6 +799,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         return fig
 
     def update_giess_chart(self, customers=1):
+        """Updates gie giesszellenbedarf chart"""
         if not isinstance(customers, list):
             customers = [customers]
         giess_over_time = self.dm.giesszellenbedarf_over_time(customers)
@@ -809,6 +837,7 @@ Mengenverhältnissen die verschiedenen Produkte dabei stehen.
         )}
 
     def update_giess_pie(self, customers=1):
+        """Updates the pie chart for giesszellenbedarf"""
         if not isinstance(customers, list):
             customers = [customers]
         giess_over_time = self.dm.giesszellenbedarf_over_time(customers)

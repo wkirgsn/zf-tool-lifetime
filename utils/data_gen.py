@@ -7,10 +7,13 @@ from os.path import join
 
 
 class DataManager:
+    """Data wrangler class"""
     time_format = '%b %y'
 
     def __init__(self):
-
+        """Loads data from data folder. So far this is the only place where
+        new customers, products and forms could get into the app."""
+        
         data_path = join(str(pathlib.Path(__file__).parent.resolve()),
                          '..', 'data')
         self.bedarf_formen = pd.read_csv(
@@ -75,6 +78,7 @@ class DataManager:
 
     @property
     def camera_ready_orders(self):
+        """Make table pretty for user view"""
         return self.orders_df\
                         .reset_index(drop=True).loc[:, ['Kunde',
                                                         'Produktnummer',
@@ -85,6 +89,7 @@ class DataManager:
 
     @staticmethod
     def _prettify_orders(df):
+        """Reformat original orders dataset"""
         df.drop('Gesamt', axis=1, inplace=True)
         customer_x_prod = df.iloc[:, :2]
         orders = df.iloc[:, 2:].stack().reset_index(1)
@@ -93,9 +98,6 @@ class DataManager:
         orders.date = pd.to_datetime(orders.date,
                                      format='%b-%y').dt.strftime('%b %y')
         return orders
-
-    def delete_cache(self):
-        self.cache = {}
 
     def calculate_additional_features(self):
         """Additional dataframes will be calculated on the base of orders_df,
@@ -148,6 +150,7 @@ class DataManager:
         self.cache = {}
 
     def maintenances_in_next_months(self, items_to_show=6):
+        """Get a list of next maintenances"""
         next_maintenances = self.bedarf_formen['next maintenance']
         dates = pd.to_datetime(next_maintenances, format=self.time_format)\
                                 .sort_values().iloc[:items_to_show]
@@ -162,6 +165,7 @@ class DataManager:
                                       'next maintenance'].values[0]
 
     def maintenance_of_form_within_months(self, form, months=3):
+        """Check if form is due within given months"""
         next_maintenance = pd.to_datetime(self.next_maintenance(form),
                                           format=self.time_format)
         return ((next_maintenance -
@@ -204,6 +208,8 @@ class DataManager:
         return ret
 
     def giesszellenbedarf_over_time(self, customers=(1, 2)):
+        """Get a nicely sorted df of giesszellenbedarf over time summed over
+        customers"""
         orders_over_time = self.orders_over_time(customers)
         prod_giess = self.prod_giesszellenbedarf_map.sum(axis=1)
         return prod_giess * orders_over_time
@@ -234,6 +240,7 @@ class DataManager:
         self.calculate_additional_features()
 
     def parse_upload(self, contents, filename, last_mod):
+        """Parse the given file and check for sanity"""
         content_type, content_string = contents.split(',')
 
         decoded = base64.b64decode(content_string)
