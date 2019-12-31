@@ -253,7 +253,14 @@ body {
   align-items: center;
 }
 
-#control-chart-container {
+#middle-section-container {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  border-top: #1E2130 solid 0.8rem;
+}
+
+#bottom-section-container {
   position: relative;
   z-index: 4;
   width: 100%;
@@ -265,7 +272,7 @@ body {
   flex: 1 1 auto;
 }
 
-#ooc-piechart-outer {
+#giess-piechart-container, #order-piechart-container {
   height: 100%;
   margin: 0;
   border-left: #1E2130 solid 0.8rem;
@@ -276,7 +283,7 @@ body {
   height: 100%;
 }
 
-#card-1, #card-2, #card-3, #card-4, #utility-card {
+#card-01, #card-1, #card-2, #card-3, #card-4, #utility-card {
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
@@ -349,15 +356,25 @@ body {
   border-color: white;
 }
 
-#value-setter-panel-usl, #value-setter-panel-lsl, #value-setter-panel-ucl, #value-setter-panel-lcl {
-  padding: 1rem 0;
+th, td {
+  width: 200px;
+}
+
+th {
+  padding: 8px;
+}
+
+td {
+  padding: 4px;
+}
+
+tr:hover {
+  color: #91dfd2
 }
 
 .output-datatable {
-  margin: 2rem 0rem 2rem 2rem;
-  line-height: 3;
   align-self: flex-end;
-  width: 80%;
+  width: 100%;
 }
 
 /*Dropdown*/
@@ -461,15 +478,42 @@ body {
   margin: 4rem 5rem 1rem;
 }
 
+#specs-descr {
+  flex: 1 1 80%;
+}
+
+#led-2-container {
+  flex: 1;
+}
+
+.double_container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-evenly;
+  margin: 4rem 2rem 0rem 2rem;
+}
+
 #metric-select-menu {
   flex: 1 1 0;
 }
 
-#value-setter-menu {
+table.scroll {
+  max-height: 50px;
+  overflow: auto;
+}
+
+#orders-table-container {
   flex: 1 1 30%;
   margin-left: 5rem;
   display: flex;
   flex-direction: column;
+}
+
+#orders-table-body {
+  overflow-y: scroll;
+  height: 50rem;
+  width: 100%;
 }
 
 #status-container {
@@ -505,37 +549,41 @@ body {
   max-width: 25%;
 }
 
-#operator-led {
+#operator-led-2 {
+  margin-left: auto;
+}
+
+#operator-led, #operator-led-2 {
   width: 200px;
 }
 
-#operator-led > div {
+#operator-led > div, #operator-led-2 > div {
   width: 80%;
   margin: auto;
 }
 
-#operator-led > div > div {
+#operator-led > div > div, #operator-led-2 > div > div {
   width: 100%;
   display: flex;
   flex-direction: row;
   justify-content: center;
 }
 
-#operator-led > div > div svg:nth-child(1) {
+#operator-led > div > div svg:nth-child(1), #operator-led-2 > div > div svg:nth-child(1) {
   margin-left: -1rem;
 }
 
-#progress-gauge > div, #progress-gauge > div > div, #progress-gauge > div > div > div {
+#attrition-gauge > div, #attrition-gauge > div > div, #attrition-gauge > div > div > div {
   width: 100%;
   text-align: center;
 }
 
-#progress-gauge svg {
+#attrition-gauge svg {
   width: 80%;
   height: auto;
 }
 
-#progress-gauge > div > div > div > div {
+#attrition-gauge > div > div > div > div {
   color: white !important;
 }
 
@@ -549,8 +597,6 @@ body {
   stroke: #fff3c5 !important;
 }
 
-/* Tab 2 Specs
-–––––––––––––––––––––––––––––––––––––––––––––––––– */
 #stop-button > div > button {
   color: white !important;
   background-color: #1d202d !important;
@@ -566,7 +612,7 @@ body {
   background-color: #1d202d !important;
 }
 
-#card-1 P, #card-2 P, #card-3 P, #card-4 P {
+#card-01 P, #card-1 P, #card-2 P, #card-3 P, #card-4 P {
   margin: 2rem;
   color: inherit;
   font-weight: bold;
@@ -577,8 +623,6 @@ body {
   display: none !important;
 }
 
-/* Tab 2 metric row
-–––––––––––––––––––––––––––––––––––––––––––––––––– */
 .metric-row-button {
   border: none;
   padding: 0px 0px;
@@ -601,6 +645,7 @@ body {
   width: 100%;
   height: 30rem;
 }
+
 
 /*
   ##Device = Most of the Smartphones Mobiles / ipad (Portrait)
@@ -645,9 +690,20 @@ body {
     height: auto;
   }
 
-  #set-specs-intro-container {
+  #specs-descr {
+    flex: 1;
+  }
+
+  #led-2-container {
+    flex: 1;
+  }
+
+  .double_container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-evenly;
     margin: 4rem 2rem 0rem 2rem;
-    font-size: inherit;
   }
 
   #settings-menu {
@@ -680,7 +736,7 @@ body {
 
   .output-datatable {
     align-self: center;
-    margin: 2rem;
+    /*margin: 2rem;*/
   }
 
   #status-container, #top-section-container {
@@ -708,7 +764,11 @@ body {
   }
 
   /*Removing borders}*/
-  #ooc-piechart-outer {
+  #order-piechart {
+    border-left: none;
+  }
+
+  #giess-piechart {
     border-left: none;
   }
 
@@ -784,7 +844,7 @@ body {
   }
 
   .metric-row > div:nth-of-type(2):before {
-    content: "Haltbarkeit";
+    content: "Verschleiß";
   }
 
   .metric-row > div:nth-of-type(3):before {
@@ -800,10 +860,6 @@ body {
   }
 
   .metric-row > div:nth-of-type(5):before {
-    content: "Out of Control";
-  }
-
-  .metric-row > div:nth-of-type(6):before {
     content: "Kritisch";
   }
 

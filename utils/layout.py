@@ -1,28 +1,54 @@
-
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 import dash_daq as daq
+from datetime import date as dt
 
 
 class LayoutBuilder:
     """Class for building the dashboard layout."""
 
     about = ("""
-###### What is this mock app about?
+###### Prozesskontrolle für Gießzellen, Gussformen und Produktbestellungen.
+Entwickelt von Wilhelm Kirchgässner für IT-Talents und ZF Friedrichshafen.
 
-This is a dashboard for monitoring real-time process quality along manufacture production line. 
+Dieses Dashboard hilft den Operatoren den Überblick über den Werkzeugbestand 
+zu behalten als auch der Logistik neue Bestellungen zu erfassen.
 
-###### What does this app shows
 
-Click on buttons in `Parameter` column to visualize details of measurement trendlines on the bottom panel.
+###### Datenerfassung
 
-The sparkline on top panel and control chart on bottom panel show Shewhart process monitor using mock data. 
-The trend is updated every other second to simulate real-time measurements. Data falling outside of six-sigma control limit are signals indicating 'Out of Control(OOC)', and will 
-trigger alerts instantly for a detailed checkup. 
+Füge dem Datenbestand entweder neue Einzelbestellungen, Batch-Bestellungen 
+oder einen völlig neuen weiteren Datensatz hinzu.
+Der aktuelle Datensatz wird automatisch gefiltert und zeigt alle Bestellungen 
+der momentan ausgewählten Abrufzeiten, Kunden und Produkte.
+Mit Klick auf den "Update"-Knopf werden die erfassten neuen Bestellungen dem 
+aktuellen Datensatz hinzugefügt. Dabei sind Stornierungen ebenso möglich, 
+indem man eine negative Zahl als Abrufmenge definiert.
 
-Operators may stop measurement by clicking on `Stop` button, and edit specification parameters by clicking specification tab.
+Über das Drag-n-Drop Feld lässt sich eine CSV- oder XLS/X-Datei hochladen, 
+welche in den aktuellen Datensatz eingebettet wird (bitte Format beachten).
+
+Wichtig: Neue Kunden, Gußformen oder Produkte können hier nicht aufgenommen 
+werden. Wenden Sie sich dafür bitte an den Systemadministratoren.
+
+###### Control Charts Dashboard
+Das Dashboard ist in zwei grobe Bereiche aufgeteilt: Quick Stats (links bzw. 
+oben bei mobiler Ansicht) mit kurzen übersichtlichen Statistiken, sowie 
+detailliertere Visualisierungen auf der anderen Seite.
+
+Der Formhaltbarkeit-Überblick zeigt wie weit der Verschleiß für jede Form 
+vorangeschritten ist. Die gelbe Sparkline zeigt den zu erwartenden Verschleiß 
+für die nächsten 12 Monate an. EOL (End-of-life) informiert über den Monat der 
+Wartung/Austausch der Form. Ist dieser in den nächsten drei Monaten, so ist 
+dies als kritisch zu bewerten (roter Indikator).
+
+Die Produkt-Bestellübersicht, sowie die Gießzellenbedarf-Übersicht zeigen auf
+einen Blick wie viel von jedem Produkt bisher bestellt wurde und welchen 
+Gießzellenbedarf sie verursachen, über die nächsten 12 Monate erstreckt.
+Die Kuchendiagramme daneben geben einen Überblick in welchen 
+Mengenverhältnissen die verschiedenen Produkte dabei stehen.
 
 """)
 
@@ -39,12 +65,14 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
         suffix_indicator = "_indicator"
         suffix_is_crit_indicator = '_is_crit_indicator'
         suffix_eol = '_EOL'
-        color_green = "#7ee37b"
-        color_yellow = "#f4d44d"
-        color_red = "#FF0000"
+        color_range = ["#FF0000",  # red
+                       "#f4d44d",  # yellow
+                       "#7ee37b",  # green
+                       ]
+        grad_bars_max = 15
         attrition_thresh_1 = 0.6
         attrition_thresh_2 = 0.85
-        column_attributes = [dict(className='one column',
+        column_attributes = (dict(className='one column',
                                   style={"margin-right": "2.5rem",
                                          "minWidth": "50px",
                                          'textAlign': 'center'},
@@ -53,7 +81,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                                   style={"height": "100%",
                                          "margin-top": "5rem"
                                          },
-                                  children=html.Div("Haltbarkeit")),
+                                  children=html.Div("Verschleiß")),
                              dict(className='four columns',
                                   style={"height": "100%"},
                                   children=html.Div("Erwartete Abnutzung")),
@@ -65,7 +93,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                                          "justifyContent": "center",
                                          },
                                   children=html.Div("Kritisch")),
-                             ]
+                             )
 
         def __init__(self, app, dm):
             """Needs a datamanager for row/column content, and the app
@@ -108,14 +136,17 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
 
             style = style or {"height": "8rem", "width": "100%"}
 
-            div_attrs = self.column_attributes.copy()
+            new_div_attrs = [dict() for _ in range(len(cols))]
+            div_attrs = list(self.column_attributes)
 
-            for default_attr, specific_attr in zip(div_attrs, cols):
-                default_attr.update(specific_attr)
+            for new_div, default_attr, specific_attr in \
+                    zip(new_div_attrs, div_attrs, cols):
+                new_div.update(default_attr)
+                new_div.update(specific_attr)
             return html.Div(id=div_id,
                             className="row metric-row",
                             style=style,
-                            children=[html.Div(**c) for c in div_attrs])
+                            children=[html.Div(**c) for c in new_div_attrs])
 
         def _get_row_contents(self, item, idx):
             """Build column content.
@@ -130,22 +161,25 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
             sparkline_graph_id = item + self.suffix_sparkline_graph
             is_crit_id = item + self.suffix_is_crit_indicator
             eol_id = item + self.suffix_eol
-
+            max_bars = self.grad_bars_max
             div_attrs = [div_id, None,
                 {"id": item, "children": item},  # form nr
                 {"id": gradbar_id + "_container",  # Haltbarkeit
                  "children": daq.GraduatedBar(
                     id=gradbar_id,
-                    showCurrentValue=False, max=20, size=140,
+                    showCurrentValue=False, max=max_bars, size=140,
                     color={
                          "ranges": {
-                             "#92e0d3": [0, 20*self.attrition_thresh_1],
-                             "#f4d44d ": [20*self.attrition_thresh_1,
-                                          20*self.attrition_thresh_2],
-                             "#f45060": [20*self.attrition_thresh_2, 20],
+                             "#92e0d3": [0,
+                                         max_bars*self.attrition_thresh_1],
+                             "#f4d44d ": [max_bars*self.attrition_thresh_1,
+                                          max_bars*self.attrition_thresh_2],
+                             "#f45060": [max_bars*self.attrition_thresh_2,
+                                         max_bars],
                          }
                      },
-                    value=20*self.dm.relative_attritions_per_form[item])
+                    value=max_bars *
+                          self.dm.relative_attritions_per_form[item])
                 },
                 {"id": item + "_sparkline",  # Erwartete Abnutzung
                  "children": dcc.Graph(
@@ -166,7 +200,8 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                 {  # is form over 80% of its life in the next 3 months?
                      "id": is_crit_id + '_container',
                      "children": daq.Indicator(
-                         id=is_crit_id, value=True, color="#91dfd2",
+                         id=is_crit_id, value=True,
+                         color=self.color_range[self.dm.form_is_critical(item)],
                          size=12
                      ),
                  },
@@ -208,21 +243,16 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
             def create_callback(_form):
                 """Decorator for forms panel callbacks"""
 
-                def callback(interval, stored_data):
+                def callback(_, stored_data):
                     spark_line = go.Figure(
                         self._get_sparkline_config(_form))
                     attrition = attritions[_form]
-
-                    if self.dm.maintenance_of_form_within_months(3):
-                        is_crit_color = self.color_red
-                    elif self.dm.maintenance_of_form_within_months(6):
-                        is_crit_color = self.color_yellow
-                    else:
-                        is_crit_color = self.color_green
+                    crit_color = \
+                        self.color_range[self.dm.form_is_critical(_form)]
                     next_maintenance = self.dm.next_maintenance(_form)
-                    return 20*attrition, \
+                    return self.grad_bars_max*attrition, \
                            spark_line,\
-                           is_crit_color, \
+                           crit_color, \
                            next_maintenance
 
                 return callback
@@ -235,7 +265,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                         Output(form + self.suffix_is_crit_indicator, "color"),
                         Output(form + self.suffix_eol, 'children')
                     ],
-                    inputs=[Input("interval-component", "n_intervals")],
+                    inputs=[Input("app-tabs", "value")],
                     state=[State("value-setter-store", "data")],
                 )(create_callback(form))
 
@@ -261,7 +291,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                     children=[
                         dcc.Tab(
                             id="Specs-tab",
-                            label="Upload Data",
+                            label="Datenerfassung",
                             value="tab1",
                             className="custom-tab",
                             selected_className="custom-tab--selected",
@@ -270,13 +300,6 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                             id="Control-chart-tab",
                             label="Control Charts Dashboard",
                             value="tab2",
-                            className="custom-tab",
-                            selected_className="custom-tab--selected",
-                        ),
-                        dcc.Tab(
-                            id="ml-tab",
-                            label="Machine Learning",
-                            value="tab3",
                             className="custom-tab",
                             selected_className="custom-tab--selected",
                         ),
@@ -316,32 +339,6 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
         )
 
     @staticmethod
-    def generate_piechart():
-        return dcc.Graph(
-            id="piechart",
-            figure={
-                "data": [
-                    {
-                        "labels": [],
-                        "values": [],
-                        "type": "pie",
-                        "marker": {"line": {"color": "white", "width": 1}},
-                        "hoverinfo": "label",
-                        "textinfo": "label",
-                    }
-                ],
-                "layout": {
-                    "margin": dict(l=20, r=20, t=20, b=20),
-                    "showlegend": True,
-                    "paper_bgcolor": "rgba(0,0,0,0)",
-                    "plot_bgcolor": "rgba(0,0,0,0)",
-                    "font": {"color": "white"},
-                    "autosize": True,
-                },
-            },
-        )
-
-    @staticmethod
     def build_value_setter_line(line_num, label, value, col3):
         return html.Div(
             id=line_num,
@@ -353,7 +350,28 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
             className="row",
         )
 
+    def build_main_structure(self):
+        """The big picture."""
+        return html.Div(
+                id="big-app-container",
+                children=[
+                    self.build_banner(),
+                    html.Div(
+                        id="app-container",
+                        children=[
+                            self.build_tabs(),
+                            # Main app
+                            html.Div(id="app-content"),
+                        ],
+                    ),
+                    dcc.Store(id="value-setter-store", data={}),
+                    self.build_about(),
+                ],
+)
+
     def build_quick_stats_panel(self):
+        current_giesszellenbedarf = \
+            self.dm.giesszellenbedarf_over_time().iloc[0, :]
         return html.Div(
             id="quick-stats",
             className="row",
@@ -374,7 +392,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                 html.Div(
                     id="card-2",
                     children=[
-                        html.P("Durchschnittl. Formhaltbarkeit"),
+                        html.P("Durchschnittl. Formverschleiß"),
                         daq.GraduatedBar(
                             id="form-life-bar",
                             value=self.dm.avg_attrition
@@ -384,15 +402,17 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                 html.Div(
                     id="card-3",
                     children=[
-                        html.P("Gießzellenauslastung"),
+                        html.P("Prozentuale Gießzellenauslastung diesen Monat"),
                         daq.Gauge(id="attrition-gauge",
-                                    min=0, max=100, showCurrentValue=True)],
+                                  min=0, max=100, showCurrentValue=True,
+                                  value=100 * current_giesszellenbedarf.mean() /
+                                        current_giesszellenbedarf.max())],
                 ),
                 html.Div(
                     id="card-4",
-                    children=[
-                        html.P("AI"),
-                        daq.PowerButton(id="AI-powerbutton", on=False)],
+                    children=
+                        daq.BooleanSwitch(id="AI-powerbutton", on=False,
+                                        label='AI', color="#92e0d3"),
                 ),
             ],
         )
@@ -426,17 +446,32 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
         self.form_artist.generate_callbacks()
 
     def build_upload_data_tab(self):
-        forms = self.dm.bedarf_formen.Form.unique().tolist()
-        # todo: rewrite below
+        unique_customers = self.dm.unique_customers
+        unique_products = self.dm.unique_products
+        orders_df = self.dm.camera_ready_orders
         return [
             # Manually select metrics
             html.Div(
                 id="set-specs-intro-container",
                 # className='twelve columns',
-                children=html.P(
-                    "Edit specifications for forms and products or "
-                    "customer orders"
-                ),
+                children=[
+                    html.Div(id='specs-descr',
+                             children=
+                        html.P("Erfasse neue Bestellungen oder lade einen neuen "
+                               "Datensatz hoch. Der aktuelle Datensatz wird automatisch "
+                               f"gefiltert.")),
+                     html.Div(id='led-2-container',
+                              children=daq.LEDDisplay(
+                                             id="operator-led-2",
+                                             value="042", size=20,
+                                             color="#92e0d3",
+                                             label='Operator ID',
+                                             backgroundColor="#1e2130"),
+                              ),
+
+
+                    ],
+                className='double_container'
             ),
             html.Div(
                 id="settings-menu",
@@ -445,44 +480,121 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                         id="metric-select-menu",
                         # className='five columns',
                         children=[
-                            html.Label(id="metric-select-title",
-                                       children="Select Metrics"),
-                            html.Br(),
+                            html.Label(id="metric-select-title-customer",
+                                       children="Kunde(n)"),
                             dcc.Dropdown(
-                                id="metric-select-dropdown",
+                                id="metric-select-dropdown-customer",
                                 options=list(
-                                    {"label": param, "value": param} for param in
-                                    forms
+                                    {"label": param, "value": param} for
+                                    param in unique_customers
                                 ),
-                                value=forms[1],
+                                multi=True,
                             ),
-                        ],
-                    ),
-                    html.Div(
-                        id="value-setter-menu",
-                        # className='six columns',
-                        children=[
-                            html.Div(id="value-setter-panel"),
+                            html.Br(),
+                            html.Label(id="metric-select-title-product",
+                                       children="Produkt(e)"),
+                            dcc.Dropdown(
+                                id="metric-select-dropdown-product",
+                                options=list(
+                                    {"label": param, "value": param} for
+                                    param in unique_products
+                                ),
+                                multi=True,
+                            ),
+                            html.Br(),
+                            html.Label(id="metric-select-title-amt",
+                                       children="Zusätzliche Abrufmenge "
+                                                "(negativ für Storno)"),
+                            daq.NumericInput(id='abrufmenge-input',
+                                             className='setting-input',
+                                             value=0,
+                                             min=-999999,
+                                             max=999999),
+                            html.Br(),
+                            html.Label(id="metric-select-title-date",
+                                       children="Abrufzeitpunkt"),
+                            dcc.DatePickerSingle(
+                                id='date-picker-single',
+                                date=dt.today()
+                            ),
+                            html.Br(),
                             html.Br(),
                             html.Div(
                                 id="button-div",
-                                children=[
-                                    html.Button("Update", id="value-setter-set-btn"),
-                                    html.Button(
-                                        "View current setup",
-                                        id="value-setter-view-btn",
-                                        n_clicks=0,
-                                    ),
-                                ],
+                                children=
+                                html.Button("Update",
+                                            id="value-setter-set-btn",
+                                            disabled=False),
                             ),
+                            html.Br(),
+                            dcc.Upload(id='drag-n-drop',
+                                       children=html.Div([
+                                                'Drag and Drop or ',
+                                                html.A('Select Files')
+                                            ]),
+                                       style={
+                                           'width': '100%',
+                                           'height': '60px',
+                                           'lineHeight': '60px',
+                                           'borderWidth': '1px',
+                                           'borderStyle': 'dashed',
+                                           'borderRadius': '5px',
+                                           'textAlign': 'center',
+                                           'margin': '10px'
+                                       })
+                        ],
+                    ),
+                    html.Div(
+                        id="orders-table-container",
+                        # className='six columns',
+                        children=[
+                            html.H4(
+                                style=dict(textAlign='center'),
+                                children='Aktueller Datensatz'),
+                            html.Table([
+                                        # header
+
+                                         html.Tr(
+                                             [html.Th('Index')] +
+                                             [html.Th(col) for col in
+                                              orders_df.columns]),
+                                         ],
+                                        id="orders-table-head",
+                                        className="output-datatable",),
                             html.Div(
-                                id="value-setter-view-output", className="output-datatable"
+                             html.Table(# body
+                                 id='orders-table-content',
+                                 children=self.generate_order_table_content(),
+                                 title='Aktueller Datensatz',
+                                 className="output-datatable",
+                             ),
+                            id="orders-table-body",
                             ),
                         ],
                     ),
                 ],
             ),
         ]
+
+    def generate_order_table_content(self,
+                                     customers=None, products=None,
+                                     month=None):
+        orders_df = self.dm.camera_ready_orders
+        if customers is not None:
+            if not isinstance(customers, list):
+                customers = [customers]
+            if len(customers) > 0:
+                orders_df = orders_df.loc[orders_df.Kunde.isin(customers), :]
+        if products is not None:
+            if not isinstance(products, list):
+                products = [products]
+            if len(products) > 0:
+                orders_df = orders_df.loc[orders_df.Produkt.isin(products), :]
+        if month is not None:
+            orders_df = orders_df.loc[orders_df.date == month, :]
+
+        return [html.Tr([html.Td(i) for i in tup]) for tup in
+                orders_df.itertuples()]
 
     def build_monitoring_tab(self):
         return html.Div(
@@ -493,7 +605,7 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                         id="graphs-container",
                         children=[self.build_forms_panel(),
                                   self.build_orders_panel(),
-                                  # todo: lb.build_giesszellenbedarf_panel()
+                                  self.build_giesszellenbedarf_panel()
                                   ],
                     ),
                 ],
@@ -528,137 +640,201 @@ Operators may stop measurement by clicking on `Stop` button, and edit specificat
                     className="three columns",
                     children=[
                         self.build_section_banner("Nächste Wartungstermine"),
-                        # generate_piechart(),
-                        self.build_next_maintenance_dates()
+                        html.Div(id='next_maintenances',
+                                 children=[html.Div(children=m) for m in
+                                           self.dm.maintenances_in_next_months()
+                                           ])
                     ],
                 ),
             ],
         )
-
-    def build_next_maintenance_dates(self):
-        return html.Div(id='next_maintenances',
-                        children=[html.Div(children=m) for m in
-                                  self.dm.maintenances_in_next_months()])
 
     def build_orders_panel(self):
         return html.Div(
             id="middle-section-container",
-            className="twelve columns",
+            className="row",
             children=[
-                self.build_section_banner("Bestellübersicht"),
-                dcc.Graph(
-                    id="order-overview",
-                    figure=go.Figure(
-                        {
-                            "data": [
-                                {
-                                    "x": [],
-                                    "y": [],
-                                    "mode": "lines+markers",
-                                    "name": 'what name?',
-                                }
-                            ],
-                            "layout": {
-                                "paper_bgcolor": "rgba(0,0,0,0)",
-                                "plot_bgcolor": "rgba(0,0,0,0)",
-                                "xaxis": dict(
-                                    showline=False, showgrid=False,
-                                    zeroline=False
-                                ),
-                                "yaxis": dict(
-                                    showgrid=False, showline=False,
-                                    zeroline=False
-                                ),
-                                "autosize": True,
-                            },
-                        }
-                    ),
-                ),
+                html.Div(id='order-overview-container',
+                         className='eight columns',
+                         children=[
+                             self.build_section_banner(
+                                 "Produkte Bestellübersicht"),
+                             dcc.Graph(id="order-overview",
+                                       figure=self.update_order_chart())
+                         ]),
+                html.Div(id='order-piechart-container',
+                         className='four columns',
+                         children=[
+                             self.build_section_banner('Bestellverhältnisse '
+                                                       'der Produkte'),
+                             dcc.Graph(id="order-piechart",
+                                       figure=self.update_order_pie())
+                         ])
             ],
         )
 
-    def generate_order_chart(self, interval, specs_dict, col):
+    def build_giesszellenbedarf_panel(self):
+        return html.Div(
+            id="bottom-section-container",
+            className="row",
+            children=[
+                html.Div(id='giess-overview-container',
+                         className='eight columns',
+                         children=[
+                             self.build_section_banner(
+                                 "Gießzellenbedarf Übersicht"),
+                             dcc.Graph(id="giess-overview",
+                                       figure=self.update_giess_chart())
+                         ]),
+                html.Div(id='giess-piechart-container',
+                         className='four columns',
+                         children=[
+                             self.build_section_banner(
+                                 'Gießzellenauslastungsverhältnis '
+                                                       'der Produkte'),
+                             dcc.Graph(id="giess-piechart",
+                                       figure=self.update_giess_pie())
+                         ])
+            ],
+        )
 
-        ser = self.dm.orders_df.groupby('date').sum().loc[self.dm.today:,
-                'amt_orders']
+    def update_order_chart(self, customers=1):
 
-        """ooc_trace = {
-            "x": [],
-            "y": [],
-            "name": "Out of Control",
-            "mode": "markers",
-            "marker": dict(color="rgba(210, 77, 87, 0.7)", symbol="square",
-                           size=11),
-        }
+        if not isinstance(customers, list):
+            customers = [customers]
 
-        for index, data in enumerate(y_array[:total_count]):
-            if data >= ucl or data <= lcl:
-                ooc_trace["x"].append(index + 1)
-                ooc_trace["y"].append(data)"""
+        orders_df = self.dm.orders_over_time(customers)
 
-        histo_trace = {
-            "x": ser.index,
-            "y": ser,
-            "type": "histogram",
-            "orientation": "h",
-            "name": "Distribution",
-            "xaxis": "x2",
-            "yaxis": "y2",
-            "marker": {"color": "#f4d44d"},
-        }
+        fig = {"data": [{"x": orders_df.index,
+                         "y": orders_df[prod],
+                         "type": "bar",
+                         "name": prod,
+                         } for prod in orders_df],
+               "layout": dict(
+                   margin=dict(t=40),
+                   hovermode="closest",
+                   barmode='stack',
+                   paper_bgcolor="rgba(0,0,0,0)",
+                   plot_bgcolor="rgba(0,0,0,0)",
+                   legend={"font": {"color": "darkgray"},
+                           "orientation": "h", "x": 0, "y": 1.1},
+                   font={"color": "darkgray"},
+                   showlegend=True,
+                   xaxis={
+                       "zeroline": False,
+                       "showgrid": False,
+                       "title": "Monat und Jahr",
+                       "showline": False,
+                       "titlefont": {"color": "darkgray"},
+                   },
+                   yaxis={
+                       "title": 'Gesamtbestellmenge',
+                       "showgrid": False,
+                       "showline": False,
+                       "zeroline": False,
+                       "autorange": True,
+                       "titlefont": {"color": "darkgray"},
+                   },
 
-        fig = {"data": [
-                    {
-                        "x": ser.index,
-                        "y": ser,
-                        "mode": "lines+markers",
-                        "name": col,
-                        "line": {"color": "#f4d44d"},
-                    },
-                    # ooc_trace,
-                    histo_trace,
-                    ],
-                "layout": dict(
-                    margin=dict(t=40),
-                    hovermode="closest",
-                    uirevision=col,
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    legend={"font": {"color": "darkgray"}, "orientation": "h", "x": 0,
-                            "y": 1.1},
-                    font={"color": "darkgray"},
-                    showlegend=True,
-                    xaxis={
-                        "zeroline": False,
-                        "showgrid": False,
-                        "title": "Batch Number",
-                        "showline": False,
-                        "domain": [0, 0.8],
-                        "titlefont": {"color": "darkgray"},
-                    },
-                    yaxis={
-                        "title": col,
-                        "showgrid": False,
-                        "showline": False,
-                        "zeroline": False,
-                        "autorange": True,
-                        "titlefont": {"color": "darkgray"},
-                    },
-
-                    xaxis2={
-                        "title": "Count",
-                        "domain": [0.8, 1],  # 70 to 100 % of width
-                        "titlefont": {"color": "darkgray"},
-                        "showgrid": False,
-                    },
-                    yaxis2={
-                        "anchor": "free",
-                        "overlaying": "y",
-                        "side": "right",
-                        "showticklabels": False,
-                        "titlefont": {"color": "darkgray"},
-                },
         )}
 
         return fig
 
+    def update_order_pie(self, customers=1):
+        if not isinstance(customers, list):
+            customers = [customers]
+        orders_df = self.dm.orders_over_time(customers)
+        values = orders_df.values.sum(axis=0)
+        values = values / values.max()  # normalize
+        colors = ["#f45060" if v > 0.1 else "#91dfd2" for v in values]
+        fig = {
+            "data": [
+                {
+                    "labels": orders_df.columns.tolist(),
+                    "values": values,
+                    "type": "pie",
+                    "marker": {"colors": colors,
+                               "line": dict(color="white", width=2)},
+                    "hoverinfo": "label",
+                    "textinfo": "label",
+                }
+            ],
+            "layout": {
+                "margin": dict(t=20, b=50),
+                "uirevision": True,
+                "font": {"color": "white"},
+                "showlegend": False,
+                "paper_bgcolor": "rgba(0,0,0,0)",
+                "plot_bgcolor": "rgba(0,0,0,0)",
+                "autosize": True,
+            },
+        }
+        return fig
+
+    def update_giess_chart(self, customers=1):
+        if not isinstance(customers, list):
+            customers = [customers]
+        giess_over_time = self.dm.giesszellenbedarf_over_time(customers)
+        return {"data": [{"x": giess_over_time.index,
+                         "y": giess_over_time[prod],
+                         "type": "bar",
+                         "name": prod,
+                         } for prod in giess_over_time],
+               "layout": dict(
+                   margin=dict(t=40),
+                   hovermode="closest",
+                   barmode='stack',
+                   paper_bgcolor="rgba(0,0,0,0)",
+                   plot_bgcolor="rgba(0,0,0,0)",
+                   legend={"font": {"color": "darkgray"},
+                           "orientation": "h", "x": 0, "y": 1.1},
+                   font={"color": "darkgray"},
+                   showlegend=True,
+                   xaxis={
+                       "zeroline": False,
+                       "showgrid": False,
+                       "title": "Monat und Jahr",
+                       "showline": False,
+                       "titlefont": {"color": "darkgray"},
+                   },
+                   yaxis={
+                       "title": 'Gesamtgießzellenbedarf',
+                       "showgrid": False,
+                       "showline": False,
+                       "zeroline": False,
+                       "autorange": True,
+                       "titlefont": {"color": "darkgray"},
+                   },
+
+        )}
+
+    def update_giess_pie(self, customers=1):
+        if not isinstance(customers, list):
+            customers = [customers]
+        giess_over_time = self.dm.giesszellenbedarf_over_time(customers)
+        values = giess_over_time.values.sum(axis=0)
+        values = values / values.max()  # normalize
+        colors = ["#f45060" if v > 0.1 else "#91dfd2" for v in values]
+        fig = {
+            "data": [
+                {
+                    "labels": giess_over_time.columns.tolist(),
+                    "values": values,
+                    "type": "pie",
+                    "marker": {"colors": colors,
+                               "line": dict(color="white", width=2)},
+                    "hoverinfo": "label",
+                    "textinfo": "label",
+                }
+            ],
+            "layout": {
+                "margin": dict(t=20, b=50),
+                "uirevision": True,
+                "font": {"color": "white"},
+                "showlegend": False,
+                "paper_bgcolor": "rgba(0,0,0,0)",
+                "plot_bgcolor": "rgba(0,0,0,0)",
+                "autosize": True,
+            },
+        }
+        return fig
