@@ -26,9 +26,10 @@ Unabhängig davon muss folgendes ausgeführt werden:
  Im Terminal/Command Prompt:
  ```
 git clone https://github.com/wkirgsn/zf-tool-lifetime.git
+cd zf-tool-lifetime
 pip install -r requirements.txt
 ```
-Die erste Zeile lädt das Repository runter, während die zweite Zeile alle 
+Die erste Zeile lädt das Repository runter, während die dritte Zeile alle 
 benötigten Python-packages installiert.
 
 ## Getting Started
